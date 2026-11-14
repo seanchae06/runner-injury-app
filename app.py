@@ -1,6 +1,7 @@
 """러너 부상 예측 & 방지 어시스턴트
 실행: streamlit run app.py
 """
+import base64
 import datetime
 
 import pandas as pd
@@ -260,20 +261,76 @@ if st.session_state.page != HOME:
 
 
 # ── 화면 0: 시작 화면 ──────────────────────────────────────────────────
+def home_chart_svg():
+    """시작 화면 아래에 까는 장식용 훈련 기록 그래프(SVG)를 만든다.
+    8주 동안의 러닝을 막대로 그리고, 마지막 장거리만 점선(평소 범위)을 넘겨 밝게 표시한다."""
+    accent = "#4DABF7"
+    week = [5, 0, 6, 0, 5, 0, 9]  # 월~일 달린 거리(km), 0은 쉬는 날
+    days = week * 7 + [6, 0, 7, 0, 6, 0, 13]  # 마지막 주에 장거리 급증
+    pad, base, unit = 130, 250, 13  # 좌우 여백, 바닥선 위치, 1km당 높이
+    slot = (1600 - 2 * pad) / len(days)
+    limit = base - 9 * 1.1 * unit  # 평소 최장 거리의 1.1배 높이
+    parts = [
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 280">',
+        f'<line x1="0" x2="1600" y1="{limit:.1f}" y2="{limit:.1f}" stroke="{accent}" '
+        'stroke-opacity=".35" stroke-width="1.5" stroke-dasharray="3 9"/>',
+    ]
+    for i, km in enumerate(days):
+        x = pad + slot * i + slot / 2
+        if km == 0:
+            parts.append(f'<circle cx="{x:.1f}" cy="{base - 3}" r="2.5" fill="#2B3445"/>')
+            continue
+        last_week = i >= len(days) - 7
+        color = accent if km > 9.9 else "#35507A" if last_week else "#263042"
+        parts.append(
+            f'<rect x="{x - 5:.1f}" y="{base - km * unit:.1f}" width="10" '
+            f'height="{km * unit:.1f}" rx="5" fill="{color}"/>'
+        )
+    parts.append("</svg>")
+    return "".join(parts)
+
+
 def render_home():
-    st.write("")
-    st.write("")
+    chart = base64.b64encode(home_chart_svg().encode()).decode()
+    # 이 스타일은 시작 화면이 그려질 때만 들어가므로 다른 화면에는 영향을 주지 않는다.
     st.markdown(
-        "<h1 style='text-align:center;'>러너 부상 예측 &amp; 방지 어시스턴트</h1>",
+        f"""
+<style>
+/* 그래프를 본문 맨 아래에 깔고, 본문과 함께 스크롤되게 해서 글자와 겹치지 않게 한다 */
+[data-testid="stMain"], section.main {{
+  background-image: url("data:image/svg+xml;base64,{chart}");
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: 100% auto;
+  background-attachment: local;
+}}
+[data-testid="stMainBlockContainer"], .block-container {{ padding-top: 3rem; padding-bottom: max(15vw, 5rem); }}
+[data-testid="stHeader"] {{ background: transparent; }}
+.hero {{ text-align: center; padding: 5vh 0 1.6rem; word-break: keep-all; }}
+.hero h1 {{ font-size: 3.1rem; font-weight: 800; line-height: 1.22; letter-spacing: -0.02em;
+  padding: 0; margin: 0 0 1rem; }}
+.hero .sub {{ font-size: 1.2rem; opacity: .7; }}
+.steps {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.6rem;
+  margin-top: 3.4rem; word-break: keep-all; }}
+.steps > div {{ border-top: 1px solid rgba(128, 128, 128, .35); padding-top: .9rem; }}
+.steps b {{ display: block; color: #4DABF7; font-size: .9rem; font-weight: 600; margin-bottom: .35rem; }}
+.steps strong {{ display: block; font-size: 1.05rem; font-weight: 700; margin-bottom: .3rem; }}
+.steps span {{ display: block; font-size: .92rem; line-height: 1.55; opacity: .7; }}
+.note {{ text-align: center; font-size: .85rem; opacity: .55; margin-top: 2.8rem; }}
+@media (max-width: 640px) {{
+  .hero h1 {{ font-size: 2.1rem; }}
+  .steps {{ grid-template-columns: 1fr; gap: 1.1rem; }}
+}}
+</style>
+<div class="hero">
+  <h1>러너 부상 예측 &amp; 방지<br>어시스턴트</h1>
+  <div class="sub">안전한 마라톤 완주를 위한 페이스메이커</div>
+</div>
+""",
         unsafe_allow_html=True,
     )
-    st.markdown(
-        "<h3 style='text-align:center; font-weight:400;'>"
-        "안전한 마라톤 완주를 위한 페이스메이커</h3>",
-        unsafe_allow_html=True,
-    )
-    st.write("")
-    _, center, _ = st.columns([1, 2, 1])
+
+    _, center, _ = st.columns([1, 1.2, 1])
     with center:
         wide_button(
             "👉 시작하기",
@@ -281,6 +338,18 @@ def render_home():
             on_click=go_to,
             args=(MENU[0],),
         )
+
+    st.markdown(
+        """
+<div class="steps">
+  <div><b>1</b><strong>운동 기록 저장</strong><span>날짜, 거리, 시간, 통증 점수를 남깁니다.</span></div>
+  <div><b>2</b><strong>부상 위험도 예측</strong><span>훈련 부하와 통증 신호를 함께 점검합니다.</span></div>
+  <div><b>3</b><strong>웹 소개 및 알고리즘</strong><span>어떤 기준으로 판정했는지 그대로 보여 줍니다.</span></div>
+</div>
+<div class="note">교육용 프로토타입이며 의학적 진단을 대신하지 않습니다.</div>
+""",
+        unsafe_allow_html=True,
+    )
 
 
 # ── 화면 1: 운동 기록 저장 ─────────────────────────────────────────────
