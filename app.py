@@ -317,10 +317,8 @@ def render_home():
 .steps {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.6rem;
   margin-top: 3.4rem; word-break: keep-all; }}
 .steps > div {{ border-top: 1px solid rgba(128, 128, 128, .35); padding-top: .9rem; }}
-.steps b {{ display: block; color: #4DABF7; font-size: .9rem; font-weight: 600; margin-bottom: .35rem; }}
 .steps strong {{ display: block; font-size: 1.05rem; font-weight: 700; margin-bottom: .3rem; }}
 .steps span {{ display: block; font-size: .92rem; line-height: 1.55; opacity: .7; }}
-.note {{ text-align: center; font-size: .85rem; opacity: .55; margin-top: 2.8rem; }}
 @media (max-width: 640px) {{
   .hero h1 {{ font-size: 2.1rem; }}
   .steps {{ grid-template-columns: 1fr; gap: 1.1rem; }}
@@ -346,18 +344,17 @@ def render_home():
     st.markdown(
         """
 <div class="steps">
-  <div><b>1</b><strong>운동 기록 저장</strong><span>날짜, 거리, 시간, 통증 점수를 남깁니다.</span></div>
-  <div><b>2</b><strong>부상 위험도 예측</strong><span>훈련 부하와 통증 신호를 함께 점검합니다.</span></div>
-  <div><b>3</b><strong>웹 소개 및 알고리즘</strong><span>어떤 기준으로 판정했는지 그대로 보여 줍니다.</span></div>
+  <div><strong>운동 기록 저장</strong><span>날짜, 거리, 시간, 통증 점수를 남깁니다.</span></div>
+  <div><strong>부상 위험도 예측</strong><span>훈련 부하와 통증 신호를 함께 점검합니다.</span></div>
+  <div><strong>웹 소개 및 알고리즘</strong><span>어떤 기준으로 판정했는지 그대로 보여 줍니다.</span></div>
 </div>
-<div class="note">교육용 프로토타입이며 의학적 진단을 대신하지 않습니다.</div>
 """,
         unsafe_allow_html=True,
     )
 
 
 
-def page_header(number, title, description):
+def page_header(title, description):
     """시작 화면의 단계 소개와 같은 모양으로 각 화면의 머리글을 그린다."""
     band = base64.b64encode(home_chart_svg(muted=True).encode()).decode()
     st.markdown(
@@ -372,7 +369,6 @@ def page_header(number, title, description):
 [data-testid="stHeader"] {{ background: transparent; }}
 .page-head {{ border-bottom: 1px solid rgba(128, 128, 128, .35); padding-bottom: 1.2rem;
   margin-bottom: 1rem; word-break: keep-all; }}
-.page-head b {{ display: block; color: #4DABF7; font-size: .95rem; font-weight: 600; margin-bottom: .3rem; }}
 .page-head h1 {{ font-size: 2.4rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.25;
   padding: 0; margin: 0 0 .5rem; }}
 .page-head .sub {{ font-size: 1.05rem; opacity: .7; }}
@@ -386,7 +382,6 @@ def page_header(number, title, description):
 .advice {{ font-size: 1.05rem; line-height: 1.65; margin: .4rem 0 1.4rem; word-break: keep-all; }}
 </style>
 <div class="page-head">
-  <b>{number}</b>
   <h1>{title}</h1>
   <div class="sub">{description}</div>
 </div>
@@ -457,7 +452,7 @@ def records_chart_html(records):
 
 # ── 화면 1: 운동 기록 저장 ─────────────────────────────────────────────
 def render_records():
-    page_header(1, "운동 기록 저장", "날짜, 거리, 시간, 통증 점수를 남깁니다.")
+    page_header("운동 기록 저장", "날짜, 거리, 시간, 통증 점수를 남깁니다.")
 
     # 1) 기존 기록 불러오기
     uploaded = st.file_uploader("기존 기록(CSV) 불러오기", type=["csv"])
@@ -603,7 +598,7 @@ def render_result(result):
 
 
 def render_predict():
-    page_header(2, "부상 위험도 예측", "훈련 부하와 통증 신호를 함께 점검합니다.")
+    page_header("부상 위험도 예측", "훈련 부하와 통증 신호를 함께 점검합니다.")
 
     st.subheader("현재 통증 부위")
     for area in PAIN_AREAS:
@@ -625,7 +620,7 @@ def render_predict():
 
 # ── 화면 3: 웹 소개 및 알고리즘 ────────────────────────────────────────
 def render_about():
-    page_header(3, "웹 소개 및 알고리즘", "어떤 기준으로 판정했는지 그대로 보여 줍니다.")
+    page_header("웹 소개 및 알고리즘", "어떤 기준으로 판정했는지 그대로 보여 줍니다.")
 
     st.subheader("프로젝트 기획 의도")
     st.write("장거리 러너의 과훈련 방지 및 근골격계 부상 예방")
