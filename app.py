@@ -261,27 +261,31 @@ if st.session_state.page != HOME:
 
 
 # ── 화면 0: 시작 화면 ──────────────────────────────────────────────────
-def home_chart_svg():
+def home_chart_svg(muted=False):
     """시작 화면 아래에 까는 장식용 훈련 기록 그래프(SVG)를 만든다.
-    8주 동안의 러닝을 막대로 그리고, 마지막 장거리만 점선(평소 범위)을 넘겨 밝게 표시한다."""
-    accent = "#4DABF7"
+    8주 동안의 러닝을 막대로 그리고, 마지막 장거리만 점선(평소 범위)을 넘겨 밝게 표시한다.
+    muted=True이면 다른 화면용으로 옅고 낮게 그린다."""
+    accent = "#2F5E96" if muted else "#4DABF7"
     week = [5, 0, 6, 0, 5, 0, 9]  # 월~일 달린 거리(km), 0은 쉬는 날
     days = week * 7 + [6, 0, 7, 0, 6, 0, 13]  # 마지막 주에 장거리 급증
-    pad, base, unit = 130, 250, 13  # 좌우 여백, 바닥선 위치, 1km당 높이
+    pad, base, unit = (130, 150, 8) if muted else (130, 250, 13)  # 좌우 여백, 바닥선 위치, 1km당 높이
     slot = (1600 - 2 * pad) / len(days)
     limit = base - 9 * 1.1 * unit  # 평소 최장 거리의 1.1배 높이
     parts = [
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 280">',
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 {base + 30}">',
         f'<line x1="0" x2="1600" y1="{limit:.1f}" y2="{limit:.1f}" stroke="{accent}" '
-        'stroke-opacity=".35" stroke-width="1.5" stroke-dasharray="3 9"/>',
+        f'stroke-opacity="{0.3 if muted else 0.35}" stroke-width="1.5" stroke-dasharray="3 9"/>',
     ]
     for i, km in enumerate(days):
         x = pad + slot * i + slot / 2
         if km == 0:
-            parts.append(f'<circle cx="{x:.1f}" cy="{base - 3}" r="2.5" fill="#2B3445"/>')
+            parts.append(f'<circle cx="{x:.1f}" cy="{base - 3}" r="2.5" fill="{"#222935" if muted else "#2B3445"}"/>')
             continue
         last_week = i >= len(days) - 7
-        color = accent if km > 9.9 else "#35507A" if last_week else "#263042"
+        if muted:
+            color = accent if km > 9.9 else "#26364F" if last_week else "#1F2632"
+        else:
+            color = accent if km > 9.9 else "#35507A" if last_week else "#263042"
         parts.append(
             f'<rect x="{x - 5:.1f}" y="{base - km * unit:.1f}" width="10" '
             f'height="{km * unit:.1f}" rx="5" fill="{color}"/>'
@@ -352,9 +356,108 @@ def render_home():
     )
 
 
+
+def page_header(number, title, description):
+    """시작 화면의 단계 소개와 같은 모양으로 각 화면의 머리글을 그린다."""
+    band = base64.b64encode(home_chart_svg(muted=True).encode()).decode()
+    st.markdown(
+        f"""
+<style>
+[data-testid="stMain"], section.main {{
+  background-image: url("data:image/svg+xml;base64,{band}");
+  background-repeat: no-repeat; background-position: center bottom;
+  background-size: 100% auto; background-attachment: local;
+}}
+[data-testid="stMainBlockContainer"], .block-container {{ padding-top: 3.5rem; padding-bottom: max(13vw, 6rem); }}
+[data-testid="stHeader"] {{ background: transparent; }}
+.page-head {{ border-bottom: 1px solid rgba(128, 128, 128, .35); padding-bottom: 1.2rem;
+  margin-bottom: 1rem; word-break: keep-all; }}
+.page-head b {{ display: block; color: #4DABF7; font-size: .95rem; font-weight: 600; margin-bottom: .3rem; }}
+.page-head h1 {{ font-size: 2.4rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.25;
+  padding: 0; margin: 0 0 .5rem; }}
+.page-head .sub {{ font-size: 1.05rem; opacity: .7; }}
+.meter {{ margin: .2rem 0 1rem; word-break: keep-all; }}
+.meter .cap {{ font-size: .9rem; opacity: .7; }}
+.meter .val {{ font-weight: 800; letter-spacing: -0.01em; line-height: 1.3; margin: .1rem 0 .6rem; }}
+.meter .bar {{ display: grid; gap: 6px; }}
+.meter .bar i {{ height: 6px; border-radius: 3px; background: rgba(128, 128, 128, .28); }}
+.meter .names {{ display: grid; gap: 6px; margin-top: .4rem; font-size: .82rem; opacity: .6; }}
+.meter .names span.on {{ opacity: 1; font-weight: 700; }}
+.advice {{ font-size: 1.05rem; line-height: 1.65; margin: .4rem 0 1.4rem; word-break: keep-all; }}
+</style>
+<div class="page-head">
+  <b>{number}</b>
+  <h1>{title}</h1>
+  <div class="sub">{description}</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def meter_html(caption, value, labels, active, color, size="1.5rem"):
+    """단계 눈금: labels 중 active번째까지 색을 채운다. active가 None이면 비워 둔다."""
+    cols = f"grid-template-columns: repeat({len(labels)}, 1fr);"
+    bars = "".join(
+        f'<i style="background:{color}"></i>' if active is not None and i <= active else "<i></i>"
+        for i in range(len(labels))
+    )
+    names = "".join(
+        f'<span class="on">{name}</span>' if i == active else f"<span>{name}</span>"
+        for i, name in enumerate(labels)
+    )
+    return (
+        f'<div class="meter"><div class="cap">{caption}</div>'
+        f'<div class="val" style="font-size:{size}; color:{color}">{value}</div>'
+        f'<div class="bar" style="{cols}">{bars}</div>'
+        f'<div class="names" style="{cols}">{names}</div></div>'
+    )
+
+
+def records_chart_html(records):
+    """내 기록을 시작 화면 그래프와 같은 모양으로 그린다 (최근 4~8주, 막대 하나가 하루)."""
+    daily, _ = prepare_daily(records)
+    if daily.empty:
+        return ""
+    day = pd.Timedelta(days=1)
+    end = daily.index.max()
+    days = min(max((end - daily.index.min()).days + 1, 28), 56)  # 기록 기간에 맞추되 4~8주
+    start = end - (days - 1) * day
+    width, height, pad_x, top, base = 720, 190, 8, 26, 150
+    slot = (width - 2 * pad_x) / days
+    max_km = max(daily.loc[start:end, "km"].max(), 1)
+    unit = (base - top) / max_km
+    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" font-family="sans-serif">']
+    for i in range(days):
+        date = start + i * day
+        x = pad_x + slot * i + slot / 2
+        if date not in daily.index:
+            parts.append(f'<circle cx="{x:.1f}" cy="{base - 2}" r="1.6" fill="#3A4558"/>')
+            continue
+        km = daily.at[date, "km"]
+        before = daily.loc[date - 30 * day : date - day, "km"]
+        spike = not before.empty and km > before.max() * SPIKE_LIMITS[0]
+        parts.append(
+            f'<rect x="{x - 3.5:.1f}" y="{base - km * unit:.1f}" width="7" height="{km * unit:.1f}" '
+            f'rx="3.5" fill="{"#4DABF7" if spike else "#3D5A8A"}"/>'
+        )
+        if spike:
+            parts.append(
+                f'<text x="{x:.1f}" y="{base - km * unit - 7:.1f}" text-anchor="middle" '
+                f'font-size="11" font-weight="700" fill="#4DABF7">{km:.1f}km</text>'
+            )
+    parts.append(f'<text x="{pad_x}" y="{height - 12}" font-size="11" fill="#8C97A8">{start:%m.%d}</text>')
+    parts.append(
+        f'<text x="{width - pad_x}" y="{height - 12}" text-anchor="end" font-size="11" fill="#8C97A8">{end:%m.%d}</text>'
+    )
+    parts.append("</svg>")
+    uri = base64.b64encode("".join(parts).encode()).decode()
+    return f'<img src="data:image/svg+xml;base64,{uri}" style="width:100%; display:block;" alt="최근 8주 기록 그래프">'
+
+
 # ── 화면 1: 운동 기록 저장 ─────────────────────────────────────────────
 def render_records():
-    st.title("📝 운동 기록 저장")
+    page_header(1, "운동 기록 저장", "날짜, 거리, 시간, 통증 점수를 남깁니다.")
 
     # 1) 기존 기록 불러오기
     uploaded = st.file_uploader("기존 기록(CSV) 불러오기", type=["csv"])
@@ -427,6 +530,11 @@ def render_records():
     if records.empty:
         st.info("아직 저장된 기록이 없습니다. CSV를 불러오거나 새 기록을 추가해 주세요.")
     else:
+        st.markdown(records_chart_html(records), unsafe_allow_html=True)
+        st.caption(
+            "막대 하나가 하루에 달린 거리입니다(최근 8주까지). "
+            "밝은 막대는 그 전 30일 중 가장 길었던 날보다 10% 넘게 더 달린 날입니다."
+        )
         st.dataframe(records, hide_index=True)
 
     st.download_button(
@@ -449,24 +557,32 @@ def render_result(result):
         st.warning(f"날짜나 거리를 읽을 수 없는 기록 {result['skipped']}건은 분석에서 제외했습니다.")
 
     # 최종 등급
+    grade_colors = ["#40C057", "#FCC419", "#FF922B", "#FA5252"]
     if load_stage is None and grade == 0:
         st.info(
             f"**판정 보류**: 기록 기간이 {MIN_DAYS_LOAD}일 미만이라 훈련 부하를 판정할 수 없습니다. "
             "기록이 더 쌓이면 다시 분석해 주세요."
         )
     else:
-        label = f"부상 위험 신호: **{GRADES[grade]}**"
+        value = GRADES[grade]
         if load_stage is None and grade < len(GRADES) - 1:
-            label += f" 이상 (기록 기간이 {MIN_DAYS_LOAD}일 미만이라 통증만 반영한 최소 등급)"
-        box = st.success if grade == 0 else st.warning if grade == 1 else st.error
-        box(label)
-        st.write(ADVICE[grade])
+            value += " 이상"
+        st.markdown(
+            meter_html("부상 위험 신호", value, GRADES, grade, grade_colors[grade], size="2.6rem")
+            + f'<div class="advice">{ADVICE[grade]}</div>',
+            unsafe_allow_html=True,
+        )
+        if load_stage is None:
+            st.caption(f"기록 기간이 {MIN_DAYS_LOAD}일 미만이라 통증만 반영한 최소 등급입니다.")
 
     # 두 축의 단계
     col1, col2 = st.columns(2)
     load_label = "판정 보류" if load_stage is None else f"{LOAD_STAGES[load_stage]} ({result['load_total']}점)"
-    col1.metric("부하 단계", load_label)
-    col2.metric("통증 단계", PAIN_STAGES[result["pain_stage"]])
+    col1.markdown(meter_html("부하 단계", load_label, LOAD_STAGES, load_stage, "#4DABF7"), unsafe_allow_html=True)
+    col2.markdown(
+        meter_html("통증 단계", PAIN_STAGES[result["pain_stage"]], PAIN_STAGES, result["pain_stage"], "#4DABF7"),
+        unsafe_allow_html=True,
+    )
 
     # 지표별 근거
     st.subheader("판정 이유")
@@ -474,7 +590,7 @@ def render_result(result):
         [(group, name, text, SCORE_LABELS[s]) for group, name, text, s in result["rows"]],
         columns=["구분", "지표", "내 기록", "판정"],
     )
-    st.dataframe(table, hide_index=True)
+    st.table(table.style.hide(axis="index"))  # 글자가 잘리지 않게 줄바꿈되는 표 사용
     if result["reasons"]:
         st.markdown("**한 단계 상향된 이유**")
         for reason in result["reasons"]:
@@ -487,7 +603,7 @@ def render_result(result):
 
 
 def render_predict():
-    st.title("🩺 부상 위험도 예측")
+    page_header(2, "부상 위험도 예측", "훈련 부하와 통증 신호를 함께 점검합니다.")
 
     st.subheader("현재 통증 부위")
     for area in PAIN_AREAS:
@@ -509,7 +625,7 @@ def render_predict():
 
 # ── 화면 3: 웹 소개 및 알고리즘 ────────────────────────────────────────
 def render_about():
-    st.title("📖 웹 소개 및 알고리즘")
+    page_header(3, "웹 소개 및 알고리즘", "어떤 기준으로 판정했는지 그대로 보여 줍니다.")
 
     st.subheader("프로젝트 기획 의도")
     st.write("장거리 러너의 과훈련 방지 및 근골격계 부상 예방")
